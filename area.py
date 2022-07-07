@@ -1,33 +1,42 @@
-from osgeo import ogr, osr
-
+from osgeo import ogr, osr,gdal
+import rasterio
 # 计算影像面积
-def area(shpPath):
+import netCDF4 as nc
+import geopandas as gpd
+from rasterio import mask
+import fiona
+def area(shpPath,tiff_fid):
     '''计算面积'''
-    driver = ogr.GetDriverByName("ESRI Shapefile")
-    dataSource = driver.Open(shpPath, 1)
-    layer = dataSource.GetLayer()
+    #读取shp
+    shapefile=gpd.GeoDataFrame.from_file(shpPath)
+    geoms = shapefile.geometry.values  # list of shapely geometries
+    ##为掩膜做准备
+    with fiona.open(shpPath, "r") as shapefile1:
+        shapes = [feature["geometry"] for feature in shapefile1]
+    geometry = geoms[0]
+    ##打开tif影像数据
+    rast = rasterio.open(tiff_fid)
+    raw_data = rast.read(1)
+    print(raw_data.shape)
+    ##掩膜
+    out_mask, out_transform,out_window= mask.raster_geometry_mask(rast, shapes)
+    out_mask = ~out_mask
+    # print(raw_data[out_mask])
+    # print(raw_data[out_mask].shape)
+    ##获取影像分辨率
+    dataset = gdal.Open(tiff_fid)
+    extent = dataset.GetGeoTransform()
+    #水平分辨率
+    XPixel=extent[1]
+    #垂直分辨率
+    YPixel=extent[5]
+    #面积计算结果
+    result=XPixel*YPixel*raw_data[out_mask].shape[0]
+    print(result)
+    return result
 
-    src_srs = layer.GetSpatialRef()  # 获取原始坐标系或投影
-    tgt_srs = osr.SpatialReference()
-    tgt_srs.ImportFromEPSG(32649)  # WGS_1984_UTM_Zone_49N投影的ESPG号，需要改自己的要去网上搜下，这个不难
-    transform = osr.CoordinateTransformation(src_srs, tgt_srs)  # 计算投影转换参数
-    # geosr.SetWellKnownGeogCS("WGS_1984_UTM_Zone_49N")
+path = '../test/roi.shp'
+#tif数据需要有投影坐标系
+tiff_fid='../test/MOD021KM.A2022143.0340.061.2022143140417.tif'
+Area=area(path,tiff_fid)
 
-    new_field = ogr.FieldDefn("Area", ogr.OFTReal)  # 创建新的字段
-    new_field.SetWidth(32)
-    new_field.SetPrecision(16)
-    layer.CreateField(new_field)
-    for feature in layer:
-        geom = feature.GetGeometryRef()
-        geom2 = geom.Clone()
-        geom2.Transform(transform)
-
-        area_in_sq_m = geom2.GetArea()  # 默认为平方米
-        # area_in_sq_km = area_in_sq_m / 1000000 #转化为平方公里
-
-        feature.SetField("Area", area_in_sq_m)
-        layer.SetFeature(feature)
-
-
-path = '/home/xjw/Downloads/code/fire/四川省/四川省.shp'
-area(path)
