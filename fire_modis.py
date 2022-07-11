@@ -34,7 +34,7 @@ class Modis():
 
     def read_meta(self):
         #  gdal打开hdf数据集
-        os.chdir("/some_material/modis")
+        os.chdir("/home/xjw/Downloads/code/fire/some_material/modis")
         file_list = glob.glob("*.hdf")
         for i in file_list:
             datasets = gdal.Open(i)
@@ -80,34 +80,62 @@ class Modis():
         K32_2 = 474.684780
         K32_2 = 1196.978785
         # 十进制转六进制
-        band21_BTT = 3634.171508 / np.log(1 + 122462 / band21_DN)
-        band31_BTT = 1304.412871 / np.log(1 + 729.541636 / band31_DN)
+        with np.errstate(invalid='ignore'):
+            band21_BTT = 3634.171508 / np.log(1 + 122462 / band21_DN)
+            band31_BTT = 1304.412871 / np.log(1 + 729.541636 / band31_DN)
         return [band21_BTT, band31_BTT]
+
+    def remove_bull(self,band):
+        band = band.astype(np.float64)
+        ind = np.argwhere(band==65535)
+        for x,y in ind:
+            band[x,y] = np.nan
+        return band
 
     def relative_fire_detection(self):
         # 获取波段
-        band21 = self.data[1, :, :]
-        band31 = self.data[10, :, :]
-        # 辐射转亮度
+        # band21 = self.data[1, :, :]
+        # band31 = self.data[10, :, :]
+        band21 =gdal.Open("nasa/MOD021KM.A2022124.0310.061.2022124151331.pssgrp_000501807186.EV_1KM_Emissive_2-EV_1KM_Emissive.tif").ReadAsArray()
+        band31 = gdal.Open('nasa/MOD021KM.A2022124.0310.061.2022124151331.pssgrp_000501807186.EV_1KM_Emissive_11-EV_1KM_Emissive.tif').ReadAsArray()
+        band21 = self.remove_bull(band21)
+        band31 = self.remove_bull(band31)
+    #    辐射转亮度
         band21_DN = self.radiance(band21,self.radiance_scales[1],self.radiance_offsets[1])
         band31_DN = self.radiance(band31, self.radiance_scales[10], self.radiance_offsets[10])
         # 转亮温
         band21_BTT, band31_BTT = [i for i in self.btt(band21_DN,band31_DN)]
         # 条件判断
-        condition1 = band21_BTT > np.nanmean(band21_BTT)+3*np.nanstd(band21_BTT)
+        condition1 = band21_BTT > (np.nanmean(band21_BTT)+3*np.nanstd(band21_BTT))
         condition2 = (band21_BTT-band31_BTT) > (np.nanmean(band21_BTT-band31_BTT)+3*np.nanstd(band21_BTT-band31_BTT))
         fire_region = np.logical_and(condition1,condition2) # numpy 将两个bool数组逻辑运算
-        np.save("fire_region/fire_region.npy", fire_region)
+        np.save("/home/xjw/Downloads/code/fire/fire_region/fire_region.npy", fire_region)
         num =fire_region.sum() # 火点个数
         print("有" + str(num) + "个火点")
         return fire_region
 
 
+def relan():
+    dataset= gdal.Open('/home/xjw/Downloads/code/fire/nasa/MOD021KM.A2022124.0310.061.2022124151331.pssgrp_000501807186.EV_1KM_Emissive_2-EV_1KM_Emissive.tif')
+    im_bands = dataset.RasterCount  # 波段数
+    im_data = dataset.ReadAsArray()  # 获取数据
+    im_geotrans = dataset.GetGeoTransform()  # 获取仿射矩阵信息
+    im_proj = dataset.GetProjection()  # 获取投影信息
+    print('dom')
+
+
+
 if __name__ == "__main__":
     # mod = Modis('/home/xjw/Downloads/code/fire/modis/MOD021KM.A2022091.0220.061.2022091133039.hdf') # 第一次用的影像
-    mod = Modis('/home/xjw/Downloads/code/fire/hunan_data/MOD021KM.A2022143.0340.061.2022143140417.hdf')
+    # root ='/home/xjw/Downloads/code/fire/newdata/'
+    # for i in os.listdir('/home/xjw/Downloads/code/fire/newdata'):
+    # print(i)
 
+    mod = Modis('/home/xjw/Downloads/code/fire/hunan_data/MOD021KM.A2022124.0310.061.2022124151331.hdf')
+    # mod.read_head()
+    # mod.read_meta()
     mod.relative_fire_detection()
+    # relan()
 # BSQ存储方式
 # EV_1KM_Emissive：热辐射波段，用来计算亮温。
 # EV_1KM_RefSB：太阳光反射波段，计算反射率。

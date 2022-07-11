@@ -21,11 +21,11 @@ class Tif(Modis):
         im_width = dataset.RasterXSize  # 栅格矩阵的列数
         im_height = dataset.RasterYSize  # 栅格矩阵的行数
         im_bands = dataset.RasterCount  # 波段数
-        im_data = dataset.ReadAsArray(0, 0, im_width, im_height)  # 获取数据 @TODO:最重要的15个波段信息[15,2828,1835]
+        data = dataset.ReadAsArray()  # 获取数据 @TODO:最重要的15个波段信息[15,2828,1835]
         im_geotrans = dataset.GetGeoTransform()  # 获取仿射矩阵信息/读取地理信息
         im_proj = dataset.GetProjection()  # 获取投影信息
-        im_data = dataset.ReadAsArray(0, 0, im_width, im_height)  # 转为numpy格式
-        data = im_data.astype(np.float32)
+        # im_data = dataset.ReadAsArray(0, 0, im_width, im_height)  # 转为numpy格式
+        # data = im_data.astype(np.float32)
         print("波段数量")
         print(im_bands)
         print("长宽(列数 行数)")
@@ -56,6 +56,7 @@ class Tif(Modis):
         # GT(0) 左上像素左上角的x坐标。112.31857939
         # GT(1) w-e像素分辨率/像素宽度。0.013652354866 # 算精度
         # GT(2) 行旋转（通常为零）。0.0 # 算精度
+        # GT(2) 行旋转（通常为零）。0.0 # 算精度
         #
         # GT(3) 左上像素左上角的y坐标。59.11624083
         # GT(4) 列旋转（通常为零）。0.0 #算维度
@@ -64,10 +65,10 @@ class Tif(Modis):
 
 if __name__ == '__main__':
     # readTif('/home/xjw/Downloads/code/fire/modis_tif/modis_tif_ev_1km_emissive_xjw.tif')
-    tiff = Tif('/hunan_data/MOD021KM.A2022143.0340.061.2022143140417.hdf',
-               '/home/xjw/Downloads/code/fire/modis_tif_ev_1km_emissive.tif')
-    mod = Modis('/hunan_data/MOD021KM.A2022143.0340.061.2022143140417.hdf')
-
+    tiff = Tif('/home/xjw/Downloads/code/fire/hunan_data/MOD021KM.A2022124.0310.061.2022124151331.hdf',
+               '/home/xjw/Downloads/code/fire/hunan_data/envi_mctk_16bands.tif')
+    # mod = Modis('/home/xjw/Downloads/code/fire/hunan_data/MOD021KM.A2022124.0310.061.2022124151331.hdf')
+    tiff.read_meta()
     tiff.relative_fire_detection()
 # BSQ存储方式
 # EV_1KM_Emissive：热辐射波段，用来计算亮温。
